@@ -88,7 +88,7 @@ Each top-level package contains paths relative to the target home directory.
 | Package | Important contents / targets | Intended use |
 | --- | --- | --- |
 | `tmux` | `.tmux.conf` → `~/.tmux.conf` | Shared tmux foundation |
-| `tmux-workstation` | `.tmux.local.conf` → `~/.tmux.local.conf` | Fedora workstation overrides |
+| `tmux-workstation` | `.tmux.local.conf` and `.tmux.theme.conf` in the home directory | Fedora workstation overrides and early theme choices |
 | `tmux-nas` | `.tmux.local.conf` → `~/.tmux.local.conf` | NAS overrides |
 | `nvim` | `.config/nvim/` → `~/.config/nvim/` | Shared editor config with Linux compatibility selection |
 | `kitty-workstation` | `.config/kitty/kitty.conf` | Workstation Kitty configuration |
@@ -105,8 +105,10 @@ A root-level file named `test` was present in the inventory. Its purpose has not
 | File in repository | Role |
 | --- | --- |
 | `tmux/.tmux.conf` | Shared tmux settings and plugins; loads the selected profile at the end |
-| `tmux-workstation/.tmux.local.conf` | Local clipboard, scrolling, appearance, and workstation theme overrides |
-| `tmux-nas/.tmux.local.conf` | NAS clipboard, scrolling, Ctrl+B prefix, and compact status bar |
+| `tmux/.config/tmux/linux.conf` | Shared Linux clipboard and scrolling bindings; sourced by both Linux profiles |
+| `tmux-workstation/.tmux.theme.conf` | Workstation Dracula module choices, loaded before TPM |
+| `tmux-workstation/.tmux.local.conf` | Includes Linux behavior and sets final workstation pane appearance |
+| `tmux-nas/.tmux.local.conf` | Includes Linux behavior, sets Ctrl+B, and applies the compact NAS bar |
 | `nvim/.config/nvim/init.lua` | Leaders, `jk` insert-mode escape, and configuration entry points |
 | `nvim/.config/nvim/lua/config/lazy.lua` | lazy.nvim bootstrap and OS-dependent lockfile selection |
 | `nvim/.config/nvim/lua/plugins/treesitter.lua` | Linux compatibility branch and original non-Linux configuration |
@@ -397,7 +399,17 @@ source-file -q ~/.tmux.local.conf
 
 The selected profile therefore overrides earlier shared settings, including keyboard copy bindings. The MacBook can continue without this optional profile.
 
-The common file currently initializes TPM before its final machine-profile source. Despite the existing “TPM must remain last” comment, there are settings after it. This ordering is relevant to the theme override and is a known cleanup item.
+The complete order after the tmux cleanup is:
+
+1. Apply common settings, keybindings, plugin declarations, and default Dracula choices.
+2. Read `~/.tmux.theme.conf` if installed, allowing machine-specific theme choices before plugin initialization.
+3. Run TPM, which initializes the theme once.
+4. Apply the existing direct Alt+number bindings.
+5. Read `~/.tmux.local.conf` if installed. Linux profiles source `~/.config/tmux/linux.conf` and then apply final machine appearance/navigation settings.
+
+Only the workstation package installs `.tmux.theme.conf`; it selects `cwd ram-usage time`. The NAS retains its final flat-bar overrides. The MacBook has neither new profile selected by this rollout. The TPM heading now describes plugin initialization rather than incorrectly promising it is the final command.
+
+When pulling this cleanup onto another Linux machine, restow `tmux` before reloading: both Linux profiles now require the newly linked `~/.config/tmux/linux.conf`.
 
 ### Common behavior recorded in the shared file
 
@@ -421,7 +433,9 @@ The outer status bar retains Dracula styling. Battery output was removed because
 set -g @dracula-plugins "cwd ram-usage time"
 ```
 
-The workstation profile reruns `~/.tmux/plugins/tmux/dracula.tmux` after setting the modules. This currently works but duplicates theme initialization and is scheduled for simplification.
+These module choices now live in `tmux-workstation/.tmux.theme.conf`, read before TPM. The second manual Dracula initialization was removed. The final workstation profile explicitly preserves the previously observed pane borders: inactive `fg=#44475a`, active `fg=#bd93f9`, with `pane-border-lines spaces`.
+
+The workstation reload, appearance, copying, and scrolling were reported working after this cleanup. NAS validation of this specific cleanup is pending until the commit is pulled and restowed there.
 
 The former 63% reading was not confirmed to be a meaningful workstation battery reading; its exact source was not diagnosed. Do not document it as a real PC battery level.
 
@@ -693,7 +707,7 @@ Backups are local recovery aids, not automatically replicated by Git. When backi
 ### Next work, in order
 
 1. **Commit this baseline documentation.** Keep the current working behavior available as a reference.
-2. **Simplify tmux.** Inspect the complete common/profile files and active options; consolidate clipboard settings; keep machine overrides explicit; remove duplicate Dracula initialization only after preserving the final appearance. Test workstation and NAS before publishing. Preserve MacBook behavior.
+2. **Complete the tmux cleanup rollout.** Shared Linux clipboard/scroll bindings and single Dracula initialization are implemented and verified on the workstation. Commit the new files, pull on the NAS, restow `tmux`/`tmux-nas`, reload, and verify NAS copying, scrolling, Ctrl+B navigation, and the compact bar. Further cosmetic cleanup of comments or redundant NAS pane declarations can be handled separately after checking effective styles. Preserve MacBook behavior.
 3. **Complete configuration coverage.** Inventory referenced Kitty/Hyprland files and shell entry points. Decide for each whether it is shared source, a machine profile, generated output, or an external dependency. Keep generated theme ownership clear.
 4. **Document and test bootstrap.** Record required package versions, plugin setup, fonts, terminfo, SSH alias setup, and PATH. Start with dry-run checks; a fully unattended installer is not implemented yet.
 5. **Update this README to the final layout.** Remove stale duplication notes when the actual cleanup is complete and record validation per machine.
