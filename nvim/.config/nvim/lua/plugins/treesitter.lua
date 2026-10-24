@@ -1,6 +1,9 @@
+local linux_compat = vim.fn.has("linux") == 1
+
 return {
   {
     "nvim-treesitter/nvim-treesitter",
+    branch = linux_compat and "master" or nil,
 
     -- The current Treesitter rewrite explicitly does not support lazy loading.
     lazy = false,
@@ -9,7 +12,7 @@ return {
     build = ":TSUpdate",
 
     config = function()
-      local treesitter = require("nvim-treesitter")
+
 
       local parsers = {
         -- Your main stack
@@ -34,6 +37,25 @@ return {
       }
 
       -- Installs missing parsers. Existing ones are left alone.
+      if linux_compat then
+        local ok, configs = pcall(require, "nvim-treesitter.configs")
+        if not ok then
+          vim.notify(
+            "Run :Lazy update nvim-treesitter, then restart Neovim.",
+            vim.log.levels.WARN
+          )
+          return
+        end
+
+        configs.setup({
+          ensure_installed = parsers,
+          auto_install = false,
+          highlight = { enable = true },
+        })
+        return
+      end
+
+      local treesitter = require("nvim-treesitter")
       treesitter.install(parsers)
 
       -- Enable Treesitter highlighting for these Neovim filetypes.
