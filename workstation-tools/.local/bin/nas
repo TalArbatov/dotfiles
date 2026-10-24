@@ -1,0 +1,2 @@
+#!/bin/sh
+exec ssh -t nas 'tmux new-session -A -s homelab'
